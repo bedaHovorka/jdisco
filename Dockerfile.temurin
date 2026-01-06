@@ -1,0 +1,125 @@
+#
+#      jDisco - Discrete/Continuous Simulation Library
+#
+#      Originally written by Keld Helsgaun (2001-2004)
+#      Roskilde University, Denmark
+#
+#      Dockerization: 2025
+#      Optimized: 2026-01 (Eclipse Temurin + BuildKit)
+#
+#      Multi-stage Maven build environment with JDK 11
+#      Compiles to Java 6 bytecode for maximum compatibility
+#
+
+# syntax=docker/dockerfile:1.4
+
+# =============================================================================
+# Stage 1: Builder - Compile and test jDisco with Java 11
+# =============================================================================
+FROM eclipse-temurin:11-jdk AS builder
+
+# Install Maven
+RUN apt-get update && apt-get install -y \
+    maven \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /build/jdisco
+
+# Layer 1: Copy dependency metadata
+# This layer caches unless pom.xml changes
+COPY pom.xml .
+
+# Layer 2: Download dependencies with BuildKit cache mount
+# Maven local repository persists across builds for faster dependency resolution
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn dependency:go-offline -B
+
+# Layer 3: Copy source code
+# This layer invalidates ONLY if source changes
+COPY src/ ./src/
+
+# Layer 4: Build, test, and package with BuildKit cache mount
+# Tests run automatically as part of the build
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean compile test package -B
+
+# Layer 5: Install to local repository (without cache mount so artifacts persist)
+RUN mvn install -B
+
+# Verify build artifacts
+RUN ls -lh target/ && \
+    echo "=== Build Complete ===" && \
+    mvn --version && \
+    java -version
+
+# =============================================================================
+# Stage 2: Artifact Extractor - Minimal runtime with build artifacts
+# =============================================================================
+FROM eclipse-temurin:11-jre-jammy AS artifact
+
+# Copy built artifacts from builder stage
+COPY --from=builder /build/jdisco/target/*.jar /artifacts/
+
+# Create metadata file
+RUN echo "jDisco 1.2.0" > /artifacts/BUILD_INFO.txt && \
+    echo "Built: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> /artifacts/BUILD_INFO.txt && \
+    echo "Java: $(java -version 2>&1 | head -1)" >> /artifacts/BUILD_INFO.txt && \
+    ls -lh /artifacts/ >> /artifacts/BUILD_INFO.txt
+
+# Verify artifacts
+RUN ls -lh /artifacts/ && \
+    cat /artifacts/BUILD_INFO.txt
+
+# Set working directory
+WORKDIR /artifacts
+
+# Default command: show build info
+CMD ["cat", "/artifacts/BUILD_INFO.txt"]
+
+# =============================================================================
+# Stage 3: Development - Full build environment for interactive use
+# =============================================================================
+FROM eclipse-temurin:11-jdk AS dev
+
+# Install Maven
+RUN apt-get update && apt-get install -y \
+    maven \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /build/jdisco
+
+# Copy project files
+COPY pom.xml .
+COPY src/ ./src/
+
+# Pre-download dependencies
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn dependency:go-offline -B
+
+# Default command: show help
+CMD ["mvn", "--help"]
+
+# =============================================================================
+# Build Instructions:
+# =============================================================================
+#
+# Build all stages:
+#   docker build -t jdisco:latest .
+#
+# Build specific stage:
+#   docker build --target builder -t jdisco:builder .
+#   docker build --target artifact -t jdisco:artifact .
+#   docker build --target dev -t jdisco:dev .
+#
+# Extract artifacts:
+#   docker run --rm -v $(pwd)/artifacts:/out jdisco:artifact sh -c "cp /artifacts/* /out/"
+#
+# Run interactive development:
+#   docker run -it --rm -v $(pwd):/build/jdisco jdisco:dev bash
+#
+# Run tests:
+#   docker run --rm jdisco:dev mvn test
+#
+# =============================================================================

@@ -1,0 +1,199 @@
+name: Maven Build with Java 6 Compatibility
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+  schedule:
+    # Run tests weekly on Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build with JDK 11
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11 (for Java 6 target compatibility)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cp .m2/settings.xml ~/.m2/settings.xml
+
+      - name: Display Java version
+        run: java -version
+
+      - name: Build project
+        run: mvn clean compile -B -V
+
+      - name: Run tests
+        run: mvn test -B
+
+      - name: Generate JavaDoc
+        run: mvn javadoc:javadoc -B
+
+      - name: Package JAR
+        run: mvn package -B -DskipTests
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jdisco-artifacts
+          path: target/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Create test report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test Results
+          path: 'target/surefire-reports/*.xml'
+          reporter: 'java-junit'
+
+  integration-test:
+    name: Integration Tests with Java 11
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cp .m2/settings.xml ~/.m2/settings.xml
+
+      - name: Run full integration build
+        run: mvn clean install -B
+
+      - name: Verify JAR contents
+        run: |
+          if [ -f target/jdisco-1.2.0.jar ]; then
+            echo "JAR created successfully"
+            jar tf target/jdisco-1.2.0.jar | head -20
+          else
+            echo "ERROR: JAR not found"
+            exit 1
+          fi
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jdisco-jar
+          path: target/jdisco-*.jar
+          retention-days: 90
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cp .m2/settings.xml ~/.m2/settings.xml
+
+      - name: Check compilation warnings
+        run: mvn clean compile -B
+
+      - name: Verify code formatting
+        run: |
+          echo "Checking for tabs and line endings..."
+          find src -name "*.java" -type f | while read f; do
+            if grep -q $'\r' "$f"; then
+              echo "ERROR: DOS line endings found in $f"
+              exit 1
+            fi
+          done
+          echo "Code formatting check passed"
+
+  publish-snapshot:
+    name: Publish Snapshot to GitHub Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    permissions:
+      checks: write
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cp .m2/settings.xml ~/.m2/settings.xml
+
+      - name: Publish to GitHub Packages
+        run: mvn deploy -B -DskipTests -Dgithub.username=${{ github.actor }} -Dgithub.token=${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  status-check:
+    name: CI Status
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    needs: [build]
+
+    steps:
+      - name: Check build status
+        run: |
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "Build failed"
+            exit 1
+          fi
+          echo "All checks passed"

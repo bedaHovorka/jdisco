@@ -1,0 +1,62 @@
+#
+#      jDisco Maven Library
+#
+#      Docker Compose orchestration using Eclipse Temurin base images
+#
+#      Usage:
+#        docker-compose -f docker-compose.temurin.yml build        # Build all services
+#        docker-compose -f docker-compose.temurin.yml up artifact  # Extract artifacts
+#        docker-compose -f docker-compose.temurin.yml run dev mvn test  # Run tests
+#
+
+services:
+  # Builder service - Compiles and tests jDisco
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.temurin
+      target: builder
+      cache_from:
+        - jdisco:builder
+    image: jdisco:builder
+    container_name: jdisco-builder
+
+  # Artifact service - Extracts build artifacts
+  artifact:
+    build:
+      context: .
+      dockerfile: Dockerfile.temurin
+      target: artifact
+      cache_from:
+        - jdisco:builder
+        - jdisco:artifact
+    image: jdisco:artifact
+    container_name: jdisco-artifact
+    volumes:
+      # Mount artifacts directory for extraction
+      - ./artifacts:/out
+    command: sh -c "cp /artifacts/*.jar /out/ && cat /artifacts/BUILD_INFO.txt"
+
+  # Development service - Interactive build environment
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.temurin
+      target: dev
+      cache_from:
+        - jdisco:dev
+    image: jdisco:dev
+    container_name: jdisco-dev
+    volumes:
+      # Mount source code for live development
+      - ./src:/build/jdisco/src
+      - ./pom.xml:/build/jdisco/pom.xml
+      # Mount artifacts directory for extraction
+      - ./artifacts:/artifacts
+      # Optional: mount local .m2 for dependency caching
+      - maven-cache:/root/.m2
+    working_dir: /build/jdisco
+
+volumes:
+  maven-cache:
+    name: jdisco-maven-cache

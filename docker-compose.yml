@@ -1,0 +1,30 @@
+#
+#      jDisco Maven Library
+#
+#      Docker Compose orchestration for building jDisco library
+#
+#      Usage:
+#        docker-compose build          # Build jDisco library
+#        docker-compose run jdisco mvn test    # Run tests
+#        docker-compose run jdisco mvn install # Install to local repo
+#
+
+services:
+  jdisco:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount Maven settings for repository configuration
+      # This file contains mirror configuration to avoid HTTP 403 errors
+      - ./.m2/settings.xml:/root/.m2/settings.xml:ro
+      # Mount artifacts directory for extraction
+      - ./artifacts:/artifacts
+      # Mount local .m2 for dependency caching between builds
+      - maven-cache:/root/.m2/repository
+    container_name: jdisco-build
+    working_dir: /build/jdisco
+
+volumes:
+  maven-cache:
+    name: jdisco-maven-cache
