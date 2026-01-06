@@ -125,9 +125,14 @@ public class ContinuousExample {
 
 ## Documentation
 
+- **Development Guidelines**: See `CLAUDE.md`
+- **Docker Setup**: See `DOCKER-GUIDE.md`
+- **GitHub Actions**: See `GITHUB-ACTIONS-GUIDE.md`
+- **Build Configuration**: See `BUILD-FIXES.md`
 - **API Documentation**: Build with `mvn javadoc:javadoc`, output in `target/site/apidocs/`
 - **Original Website**: http://webhotel4.ruc.dk/~keld/research/JDISCO/ (archived)
-- **Project Instructions**: See `CLAUDE.md` for development guidelines
+
+Detailed technical documentation archived in `/archive/` directory.
 
 ## History
 
