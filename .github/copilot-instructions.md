@@ -14,7 +14,7 @@ This file provides guidance to GitHub Copilot when working with code in this rep
 
 1. **Do not touch Java code unless explicitly requested** - This is working, stable code
 2. **Preserve Java 6 compatibility** - No Java 7+ features (no try-with-resources, no diamond operator, no lambdas, etc.)
-3. **Maintain encoding** - Source files are ISO-8859-1 encoded (some contain Latin-1 characters)
+3. **Maintain encoding** - Maven builds use ISO-8859-1 encoding (see pom.xml)
 4. **No modernization** - Do not refactor working code to "improve" it
 5. **Tests required** - Any modifications must be covered by tests
 
@@ -81,7 +81,7 @@ Build artifacts are available in `./artifacts/` directory on the host.
 Follow `.editorconfig` configuration:
 
 - **Java files**: tabs (width 4), max line length 120
-- **Source encoding**: The project has mixed encoding configuration - pom.xml specifies ISO-8859-1 for Maven builds (some legacy files may contain Latin-1 characters), while .editorconfig specifies UTF-8 for editors. Most files are ASCII-compatible.
+- **Source encoding**: Maven builds use ISO-8859-1 (configured in pom.xml). Most existing files are ASCII-compatible. Editors may use UTF-8 (per .editorconfig).
 - **Documentation**: UTF-8
 - **Line endings**: LF
 
