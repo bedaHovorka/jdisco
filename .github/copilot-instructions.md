@@ -25,10 +25,10 @@ This file provides guidance to GitHub Copilot when working with code in this rep
 - Adding tests to verify existing behavior
 - Documentation improvements
 - Build system updates (Maven plugins, Docker)
-- Adding SLF4J logging dependencies and replacing System.out.println with logger calls
+- Adding slf4j logging dependencies and replacing System.out.println with logger calls
 - Adding javax.inject for Singleton annotations (only if absolutely necessary)
 - Adding new features only if absolutely necessary (with tests)
-- Test-scoped dependencies are allowed; other dependencies require explicit justification
+- Test-scoped dependencies are allowed; other dependencies are not allowed
 
 ## Build System
 
