@@ -81,7 +81,7 @@ Build artifacts are available in `./artifacts/` directory on the host.
 Follow `.editorconfig` configuration:
 
 - **Java files**: tabs (width 4), max line length 120
-- **Source encoding**: ISO-8859-1 (some files contain Latin-1 characters)
+- **Source encoding**: pom.xml specifies ISO-8859-1 (some files may contain Latin-1 characters), though .editorconfig specifies UTF-8
 - **Documentation**: UTF-8
 - **Line endings**: LF
 
