@@ -123,12 +123,74 @@ public class ContinuousExample {
 
 - **Head, Link** - Queue/list management
 
+## GitHub Actions & CI/CD
+
+This repository uses GitHub Actions for automated builds and AI-assisted code review.
+
+### Claude Code Integration
+
+The repository includes AI-assisted development via Claude Code:
+
+#### 🤖 Automatic Code Review
+Pull requests automatically receive AI code review on:
+- Java source code changes (`src/main/java/**/*.java`)
+- Test code changes (`src/test/java/**/*.java`)
+- Build configuration changes (`pom.xml`)
+
+#### 💬 Interactive Claude Assistant
+Mention `@claude` in issues, pull requests, or comments to get AI assistance with:
+- Code suggestions and improvements
+- Bug investigation
+- Documentation generation
+- Refactoring guidance
+
+Example: "@claude please explain how the Process class handles coroutines"
+
+### Setting Up Claude Code (For Repository Maintainers)
+
+**Required:** Configure the `ANTHROPIC_API_KEY` secret to enable Claude Code workflows.
+
+#### Step 1: Obtain an Anthropic API Key
+
+1. Visit [Anthropic Console](https://console.anthropic.com/)
+2. Sign in or create an account
+3. Navigate to **API Keys** section
+4. Click **Create Key** and copy the key (starts with `sk-ant-`)
+5. Keep this key secure - it provides access to Claude API
+
+#### Step 2: Configure GitHub Secret
+
+1. Go to your repository on GitHub
+2. Navigate to **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Name: `ANTHROPIC_API_KEY`
+5. Value: Paste your Anthropic API key
+6. Click **Add secret**
+
+#### Step 3: Verify Setup
+
+After configuring the secret:
+
+1. Create a test pull request or issue
+2. Mention `@claude` in a comment
+3. Check the **Actions** tab to verify the workflow runs successfully
+4. Claude should respond within a few minutes
+
+**Note:** Claude Code requires an active Anthropic API subscription. Check [Anthropic pricing](https://www.anthropic.com/pricing) for current rates.
+
+### CI/CD Workflows
+
+- **Maven CI** (`maven-ci.yml`) - Builds and tests on every push and PR
+- **Claude Code** (`claude.yml`) - Responds to `@claude` mentions
+- **Claude Code Review** (`claude-code-review.yml`) - Automated PR reviews
+- **Maven Release** (`maven-release.yml`) - Release automation
+
+See `.github/workflows/README.md` for detailed workflow documentation.
+
 ## Documentation
 
 - **Development Guidelines**: See `CLAUDE.md`
-- **Docker Setup**: See `DOCKER-GUIDE.md`
-- **GitHub Actions**: See `GITHUB-ACTIONS-GUIDE.md`
-- **Build Configuration**: See `BUILD-FIXES.md`
+- **GitHub Workflows**: See `.github/workflows/README.md`
 - **API Documentation**: Build with `mvn javadoc:javadoc`, output in `target/site/apidocs/`
 - **Original Website**: http://webhotel4.ruc.dk/~keld/research/JDISCO/ (archived)
 
