@@ -18,6 +18,7 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # Prevent runaway costs
     permissions:
       contents: read
       pull-requests: read
@@ -28,10 +29,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 50  # Fetch more history for better context
 
       - name: Run Claude Code
         id: claude
+        continue-on-error: true  # Don't fail workflow if Claude has issues
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -47,4 +49,18 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
           # claude_args: '--allowed-tools Bash(gh pr:*)'
+      
+      - name: Check Claude status
+        if: always()
+        run: |
+          if [ "${{ steps.claude.outcome }}" == "failure" ]; then
+            echo "⚠️ Claude Code execution failed. This might be due to:"
+            echo "  - API rate limits"
+            echo "  - Network issues"
+            echo "  - Missing or invalid ANTHROPIC_API_KEY secret"
+            echo ""
+            echo "Please check the workflow logs for details."
+          elif [ "${{ steps.claude.outcome }}" == "success" ]; then
+            echo "✅ Claude Code executed successfully"
+          fi
 

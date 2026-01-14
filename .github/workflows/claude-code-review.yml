@@ -1,44 +1,77 @@
 name: Claude Code Review
 
+# Prevent concurrent reviews on the same PR
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false  # Let reviews complete
+
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/main/java/**/*.java"
-    #   - "src/test/java/**/*.java"
-    #   - "src/main/java/jDisco/**/*.java"
-    #   - "src/test/java/jDisco/**/*.java"
+    # Only run on relevant file changes to save API credits
+    paths:
+      - "src/main/java/**/*.java"
+      - "src/test/java/**/*.java"
+      - "pom.xml"
+      - "CLAUDE.md"
+      - "Dockerfile"
+      - ".github/workflows/**"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
+    # Optional: Uncomment to run only for external contributors or first-time contributors
+    # This can save API credits by skipping reviews for trusted maintainers
     # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' ||
+    #   github.event.pull_request.author_association == 'CONTRIBUTOR' ||
+    #   github.event.pull_request.author_association == 'NONE'
+    
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Prevent runaway costs
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      id-token: write
+      contents: read        # Read repository contents
+      pull-requests: write  # Post review comments
+      issues: read          # Read issue context
+      id-token: write       # Required for OIDC
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 50  # Fetch more history for better context
 
       - name: Run Claude Code Review
         id: claude-review
+        continue-on-error: true  # Don't fail PR if Claude has issues
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          # Custom prompt for automated code review
+          prompt: |
+            Please review the changes in this pull request:
+            - Check for potential bugs or issues
+            - Verify adherence to Java 6 compatibility (no Java 7+ features)
+            - Ensure proper error handling
+            - Check for security vulnerabilities
+            - Verify code style consistency
+            - Suggest improvements where appropriate
+            
+            Focus on Java source files and build configuration.
+          
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
+      
+      - name: Check review status
+        if: always()
+        run: |
+          if [ "${{ steps.claude-review.outcome }}" == "failure" ]; then
+            echo "⚠️ Claude Code Review failed. This might be due to:"
+            echo "  - API rate limits"
+            echo "  - Network issues"
+            echo "  - Missing or invalid ANTHROPIC_API_KEY secret"
+            echo ""
+            echo "The PR can still be merged. Manual review is recommended."
+          elif [ "${{ steps.claude-review.outcome }}" == "success" ]; then
+            echo "✅ Claude Code Review completed successfully"
+          fi
 
